@@ -1,0 +1,160 @@
+- hosts: all
+  become: yes
+
+  vars:
+
+# Server Locale (en_US.UTF8 / ja_JP.UTF8)
+  - locale:                 "en_US.UTF8"
+  - zone:                   "Asia/Tokyo"
+
+# Is this AmazonLinux? (1 / 2 / no)
+## For Amazon Linux, type 1. For Amazon Linux 2, type 2.
+  - aws_awslinux:           "2"
+  - aws_repo_upgrade:       "no"
+
+# CentOS Version? (6 / 7)
+## For Amazon Linux 2, type 7.
+  - centos_version:         "7"
+
+# Instance Type (t2micro / t2small)
+  - aws_instance_type:      "t2micro"
+
+# SSH Users
+## Create SSH user? (yes / no)
+  - if_add_users:           "yes"
+## Befrore run this command
+## "ssh-keygen -f roles/add_users/files/"USERNAME".pem -C "USERNAME"@localhost"
+  - add_users:
+    - "cmsuser"
+## Directory & WebServer Owner Settings
+  - c5dir_user:             "cmsuser"
+  - c5dir_group:            "nginx" # (apache/nginx)
+
+# WebServer Setting
+## Use Webserver Apache or Nginx (apache / nginx)
+  - webserver_handle:       "nginx"
+
+## Change Apahce or Nginx owner to be SSH User? (no / yes)
+  - webserver_changeowner:  "yes"
+
+## Virtualhost Setting
+  - vhost_domain:           "example.com"
+  - vhost_docroot:          "/var/www/vhosts/"
+
+## Basic Auth (yes / no)
+### Please make sure to create roles/basic_auth/files/.htpasswd
+### You can generate at http://www.htaccesstools.com/htpasswd-generator/
+  - use_basic_auth:         "no"
+
+# DB environment(mariadb / mariadb-client / mysql / mysql-client / none )
+#    - mariadb: Install MariaDB Server & Client
+#    - mariadb-client: Install MariaDB Client
+#    - mysql: Install MySQL Server & Client
+#    - mysql-client: Install only MySQL Client
+#    - none: do nothing
+#
+# Please use mysql for AWS Linux
+#
+  - db_environment:         "mariadb"
+
+## MySQL or MariaDB Setting
+## Create DB or not  (yes / no)
+  - db_create:              "yes"
+## MySQL root
+  - mysql_rootpass:         "rootpassword"
+## MySQL host
+  - mysql_loginhost:        "127.0.0.1"
+## MySQL login Infomation
+  - mysql_loginuser:        "root"
+  - mysql_loginpass:        "rootpassword"
+## MySQL ApplicationDB
+  - mysql_dbname:           "dev-c5db"
+  - mysql_username:         "dev-c5dbuser"
+  - mysql_userpass:         "concrete5-db-password"
+### Add your EC2 instance's private IP to mysql_userpermitedhost when connecting to RDS
+  - mysql_userpermitedhost:
+    - "127.0.0.1"
+    - "localhost"
+    #- "10.0.1.100" # Your EC Instance's Private IP If any
+
+# concrete5 Migration (yes / no ) + filename (without extension)
+## Please prepare the concrete5 backup file using ALL option of https://github.com/katzueno/concrete5-backup-shell/
+  - c5_migration:           "no"
+  - c5_backup_zip_filename: "backup_202000000000" # filename without extension. Use Katz's concrete5 backup shell
+  # make sure to place a backup file under roles/concrete5_migratioin/files
+
+
+# concrete5 Settings
+## concrete5 Installation (yes / no)
+  - c5_installation:        "yes"
+## Site Name
+  - c5_sitename:            "Site Name"
+## Install Theme
+## "elemental_blank" or "elemental_full"
+  - c5_starting_point:      "elemental_blank"
+  - c5_admin_email:         "info@example.com"
+  - c5_admin_pass:          "wQ408eLHuUYDo2lB"
+  - c5_locale:              "ja_JP"
+  - c5_from_email:          "iam@katzueno.com"
+  - c5_from_name:           "CMS ProWresling"
+  - c5_load_balancer:       "no" # (yes / no)
+
+# NewRelic Setting
+## Use NewRelic (yes / no)
+  - use_newrelic:           "no"
+## Use NewRelic-PHP (yes / no)
+  - use_newrelic_php:       "no"
+## NewRelic License
+  - newrelic_licensekey:    "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+## NewRelic AppName
+  - newrelic_appname:       "PHP Application_name"
+
+# You may get the following error and not getting the proper responce from New Relic PHP
+# warning: daemon connect(fd=XX uds=/tmp/.newrelic.sock) returned -1 errno=ENOENT. Failed to connect to the newrelic-daemon. Please make sure that there is a properly configured newrelic-daemon running. For additional assistance, please see: https://newrelic.com/docs/php/newrelic-daemon-startup-modes
+# Try the following
+# $ sudo systemctl stop newrelic-daemon
+# $ sudo rm /etc/newrelic/newrelic.cfg
+
+# Mackerel Setting
+## Use Mackerel (yes / no)
+  - use_mackerel:           "no"
+## Mackerel License
+  - mackerel_apikey:        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# Running roles
+  roles:
+  - role: default_setup
+  - role: add_users
+    when: if_add_users=="yes"
+  - role: apache
+    when: webserver_handle=="apache"
+  - role: nginx
+    when: webserver_handle=="nginx"
+  - role: web_dummy
+  - role: mysql_client
+    when: db_environment in ['mysql', 'mysql-client']
+  - role: mysql_server
+    when: db_environment=="mysql"
+  - role: mariadb_repo
+    when: db_environment in ['mariadb', 'mariadb-client']
+  - role: mariadb_client
+    when: db_environment in ['mariadb', 'mariadb-client']
+  - role: mariadb_server
+    when: db_environment=="mariadb"
+  - role: mysql_appdb
+    when: db_create=="yes"
+  - role: concrete5
+    when: c5_installation=="yes"
+  - role: concrete5_migration
+    when: c5_migration=="yes"
+  - role: basic_auth
+    when: use_basic_auth=="yes"
+  - role: newrelic_repo
+    when: use_newrelic=="yes" or use_newrelic_php=="yes"
+  - role: newrelic
+    when: use_newrelic=="yes"
+  - role: newrelic_php
+    when: use_newrelic_php=="yes"
+  - role: mackerel
+    when: use_mackerel=="yes"
+  - role: create_symlink_www

@@ -1,0 +1,52 @@
+server {
+    listen       80;
+
+    server_name  {{ vhost_domain }} www.{{ vhost_domain }};
+
+    charset      utf-8;
+
+    access_log   /var/log/nginx/{{ vhost_domain }}_access.log main;
+    error_log    /var/log/nginx/{{ vhost_domain }}_error.log warn;
+
+    set $skip_cache 0;
+
+    # POST requests and urls with a query string should always go to PHP
+    if ($request_method = POST) {
+            set $skip_cache 1;
+    }
+    if ($query_string != "") {
+            set $skip_cache 1;
+    }
+    if ($http_cookie ~ "CONCRETE5") {
+            set $skip_cache 1;
+    }
+
+    root         {{ vhost_docroot }}{{ vhost_domain }};
+
+	gzip_vary on;
+	gzip_disable msie6;
+	gzip_static on;
+	gzip_comp_level 9;
+ 	gzip_proxied any;
+	gzip_types text/plain text/css application/x-javascript text/xml application/xml application/xml+rss text/javascript;
+	client_max_body_size 20m;
+
+    include      /etc/nginx/default.d/deny_spambot.conf;
+
+    location / {
+    	index  index.php;
+        if (!-e $request_filename) {
+        rewrite ^ /index.php last;
+        }
+    }
+
+    location ~ \.php($|/) {
+        include       /etc/nginx/fastcgi_params;
+        include       /etc/nginx/fastcgi_params_custom;
+    }
+
+    # Don't output hidden files
+    location ~ /\. {
+        return 404;
+    }
+}

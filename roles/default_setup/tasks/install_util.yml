@@ -1,0 +1,30 @@
+- name: Install utilities
+  yum: name={{item}} state=latest
+  with_items:
+  - "python-devel"
+  - "telnet"
+  - "wget"
+  - "tcpdump"
+  - "sysstat"
+  - "nmap"
+  - "gcc"
+  - "make"
+  - "git"
+  - "subversion"
+  - "openssl-devel"
+  - "vim-enhanced"
+  - "python-devel"
+  - "python-setuptools"
+  - "MySQL-python"
+  - "curl"
+  - "curl-devel"
+- name: Install mail
+  yum: name={{item}} state=latest
+  when: centos_version=="6"
+  with_items:
+  - "mail"
+- name: Install mailx
+  yum: name={{item}} state=latest
+  when: centos_version=="7"
+  with_items:
+  - "mailx"
